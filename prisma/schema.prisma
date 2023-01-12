@@ -8,12 +8,13 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement()) @db.UnsignedInt
-  name      String   @db.VarChar(250)
-  emai      String   @unique(map: "emai_UNIQUE") @db.VarChar(250)
-  password  String   @db.VarChar(250)
-  createdAt DateTime @db.DateTime(0)
-  updatedAt DateTime @db.DateTime(0)
+  id        Int       @id @default(autoincrement())
+  name      String    @db.VarChar(250)
+  email     String    @db.VarChar(250)
+  password  String    @db.VarChar(250)
+  birthAt   DateTime? @db.DateTime()
+  createdAt DateTime  @default(now()) @db.DateTime(0)
+  updatedAt DateTime  @default(now()) @db.DateTime(0)
 
   @@map("users")
 }
