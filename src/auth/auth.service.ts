@@ -1,28 +1,65 @@
+import { BadRequestException } from '@nestjs/common';
+import { UserService } from './../user/user.service';
+import { AuthRegisterDTO } from './dtos/auth-register.dto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { User } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AuthService {
+    private issuer = 'login'
+    private audience = 'users'
+
     constructor(
         private jwtService: JwtService,
-        private prisma: PrismaService
+        private prisma: PrismaService,
+        private userService: UserService,
         
     ) {}
 
-    async createToken() {
-        // return this.jwtService.sign()
+    createToken(user: User) {
+        return {
+            accessToken: this.jwtService.sign({
+                id: user.id,
+                name: user.name,
+                email: user.email
+            }, {
+                expiresIn: '1 day',
+                subject: String(user.id),
+                issuer: this.issuer,
+                audience: this.audience
+            })
+        }
     }
 
-    async checkToken() {
-        // return this.jwtService.verify()
+    checkToken(token: string) {
+        try {
+            const data = this.jwtService.verify(token, {
+                issuer: this.issuer,
+                audience: this.audience
+            });
+
+            return data
+        } catch (e) {
+            throw new BadRequestException(e)
+        }
+    }
+
+    isValidToken(token: string) {
+        try {
+            this.checkToken(token);
+            return true;
+        } catch (e) {
+            return false;
+        }
     }
 
     async login(email: string, password: string) {
         const user = await this.prisma.user.findFirst({
             where: {
-                email,
-                password
+                email
             },
         });
 
@@ -30,7 +67,11 @@ export class AuthService {
             throw new NotFoundException('Email e/ou senha incorretos')
         }
 
-        return user;
+        if(!await bcrypt.compare(password, user.password)) {
+            throw new NotFoundException('Email e/ou senha incorretos')
+        }
+
+        return this.createToken(user);
     }
 
     async forget(email: string) {
@@ -50,7 +91,7 @@ export class AuthService {
     async reset(password: string, token: string) {
         const id = 0
 
-        await this.prisma.user.update({
+        const user = await this.prisma.user.update({
             where: {
                 id
             },
@@ -59,7 +100,13 @@ export class AuthService {
             }
         });
 
-        return true;
+        return this.createToken(user);
+    }
+
+    async register(data: AuthRegisterDTO) {
+        const user = await this.userService.create(data)
+
+        return this.createToken(user)
     }
 
     
